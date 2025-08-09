@@ -1,5 +1,6 @@
 package kioskware.vision.landmarks.scene
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.media.Image
 import kioskware.vision.landmarks.Landmark
@@ -46,16 +47,14 @@ abstract class SceneImageProcessor : ImageProcessor<Scene?>() {
     /**
      * Processes the given image to detect landmarks and objects.
      *
-     * @param image The image to process.
-     * @param rotationDegrees The rotation degrees of the image.
+     * @param image The image bitmap to process.
      *
      * Should return result scene using [createResultScene] method.
      *
      * Example:
      * ```
      * override suspend fun onProcess(
-     *     image: Image,
-     *     rotationDegrees: Int
+     *     image: Bitmap,
      * ): Scene {
      *     // Perform detection logic here
      *     val landmarks = detectLandmarks(image, rotationDegrees)
@@ -74,7 +73,7 @@ abstract class SceneImageProcessor : ImageProcessor<Scene?>() {
      * @return A Scene object containing the processed image, landmarks, and objects.
      */
     abstract suspend fun onProcess(
-        image: Image, rotationDegrees: Int
+        image: Bitmap,
     ): Scene?
 
     /**
@@ -87,7 +86,9 @@ abstract class SceneImageProcessor : ImageProcessor<Scene?>() {
      * @param overlayCanvas The Canvas on which to render the visualization.
      */
     open suspend fun onRenderVisualization(
-        scene: Scene, overlayCanvas: Canvas
+        scene: Scene,
+        image: Bitmap,
+        overlayCanvas: Canvas
     ) {
         // Default implementation does nothing
         // override to provide visualization rendering
@@ -95,12 +96,13 @@ abstract class SceneImageProcessor : ImageProcessor<Scene?>() {
 
     // From ImageProcessor<T> interface
     final override suspend fun onProcess(
-        image: Image, rotationDegrees: Int, overlayCanvas: Canvas?
+        image: Bitmap,
+        overlayCanvas: Canvas?
     ): Scene? {
-        val scene = onProcess(image, rotationDegrees)
+        val scene = onProcess(image)
         scene?.let { scene ->
             overlayCanvas?.let {
-                onRenderVisualization(scene, it)
+                onRenderVisualization(scene, image, it)
             }
         }
         return scene
@@ -111,42 +113,24 @@ abstract class SceneImageProcessor : ImageProcessor<Scene?>() {
      *
      * Should be used inside [onProcess] implementations to create the result scene.
      *
-     * @param image The original image being processed. Just pass by the same reference from the [onProcess] method.
-     * @param rotationDegrees The rotation degrees of the image. Just pass by the same reference from the [onProcess] method.
+     * @param image The original image bitmap being processed. Just pass by the same reference from the [onProcess] method.
      * @param landmarks The list of detected landmarks. Defaults to an empty list.
      * @param objects The list of detected objects. Defaults to an empty list.
      * @param params Additional parameters for the scene. Defaults to an empty list.
      * @return A Scene object containing the processed image, landmarks, and objects.
      */
     protected fun createResultScene(
-        image: Image,
-        rotationDegrees: Int,
+        image: Bitmap,
         landmarks: List<Landmark> = emptyList(),
         objects: List<Object> = emptyList(),
         params: List<ObjectParam<*>> = emptyList()
     ): Scene = Scene(
-        originalWidth = rotatedImageWidth(image, rotationDegrees),
-        originalHeight = rotatedImageHeight(image, rotationDegrees),
+        originalWidth = image.width,
+        originalHeight = image.height,
         landmarks = landmarks,
         objects = objects,
         params = params,
         sourceProcessor = this
     )
-
-    private fun rotatedImageWidth(image: Image, rotationDegrees: Int): Int {
-        return if (rotationDegrees == 90 || rotationDegrees == 270) {
-            image.height
-        } else {
-            image.width
-        }
-    }
-
-    private fun rotatedImageHeight(image: Image, rotationDegrees: Int): Int {
-        return if (rotationDegrees == 90 || rotationDegrees == 270) {
-            image.width
-        } else {
-            image.height
-        }
-    }
 
 }
